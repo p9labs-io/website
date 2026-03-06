@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P9 Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;700;800&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #0a0a09;
+  --bg2: #111110;
+  --white: #f0ece2;
+  --dim: #4a4843;
+  --mid: #7a7570;
+  --acid: #c8ff00;
+  --acid-dim: rgba(200,255,0,0.08);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Barlow Condensed', sans-serif;
+  cursor: none;
+  overflow-x: hidden;
+}
+
+/* ── Cursor ── */
+#cur {
+  position: fixed; width: 4px; height: 4px;
+  background: var(--acid); pointer-events: none;
+  z-index: 9999; transform: translate(-50%,-50%);
+  transition: transform .1s, width .2s, height .2s;
+}
+#cur-r {
+  position: fixed; width: 24px; height: 24px;
+  border: 1px solid rgba(200,255,0,.4);
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+}
+
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 28px 48px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  background: rgba(10,10,9,.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--acid);
+  opacity: 0; animation: fadein .6s ease .2s forwards;
+}
+
+.nav-links {
+  display: flex; gap: 40px; list-style: none;
+  opacity: 0; animation: fadein .6s ease .4s forwards;
+}
+.nav-links a {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--dim);
+  text-decoration: none; transition: color .2s;
+}
+.nav-links a:hover { color: var(--white); }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  padding: 120px 48px 72px;
+  position: relative;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  overflow: hidden;
+}
+
+/* large background number */
+.hero-bg-num {
+  position: absolute;
+  top: 50%; right: -20px;
+  transform: translateY(-50%);
+  font-size: clamp(320px, 45vw, 640px);
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255,255,255,.022);
+  letter-spacing: -.05em;
+  user-select: none;
+  pointer-events: none;
+}
+
+.hero-top {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .3em;
+  text-transform: uppercase; color: var(--dim);
+  margin-bottom: 32px;
+  opacity: 0; animation: fadein .6s ease .8s forwards;
+}
+
+.hero-words {
+  display: flex; flex-direction: column;
+  gap: 0;
+}
+
+.hero-line {
+  font-size: clamp(72px, 13vw, 200px);
+  font-weight: 800;
+  line-height: .92;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+  opacity: 0;
+}
+
+.hero-line.acid { color: var(--acid); }
+.hero-line.outline {
+  -webkit-text-stroke: 1px rgba(240,236,226,.25);
+  color: transparent;
+}
+
+.hero-line:nth-child(1) { animation: slamIn .5s cubic-bezier(.16,1,.3,1) 1.1s forwards; }
+.hero-line:nth-child(2) { animation: slamIn .5s cubic-bezier(.16,1,.3,1) 1.55s forwards; }
+.hero-line:nth-child(3) { animation: slamIn .5s cubic-bezier(.16,1,.3,1) 2.0s forwards; }
+.hero-line:nth-child(4) { animation: slamIn .5s cubic-bezier(.16,1,.3,1) 2.45s forwards; }
+
+.hero-bottom {
+  margin-top: 56px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 32px;
+  opacity: 0; animation: fadein .8s ease 3.2s forwards;
+  border-top: 1px solid rgba(255,255,255,.07);
+  padding-top: 32px;
+}
+
+.hero-desc {
+  max-width: 480px;
+  font-size: clamp(16px, 1.8vw, 20px);
+  font-weight: 300;
+  line-height: 1.65;
+  color: var(--mid);
+  letter-spacing: .01em;
+}
+.hero-desc strong { color: var(--white); font-weight: 400; }
+
+.hero-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .25em;
+  text-transform: uppercase; color: var(--dim);
+  text-align: right; flex-shrink: 0;
+  line-height: 1.9;
+}
+
+/* ── QUOTE ── */
+#quote {
+  padding: 120px 48px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.quote-left {
+  font-size: clamp(48px, 7vw, 104px);
+  font-weight: 800;
+  line-height: .95;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+}
+
+.quote-left .bar {
+  display: block;
+  width: 48px; height: 5px;
+  background: var(--acid);
+  margin-bottom: 40px;
+}
+
+.quote-right {}
+
+.quote-text {
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 300;
+  line-height: 1.55;
+  color: var(--mid);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: .01em;
+}
+.quote-text em { font-style: italic; color: var(--white); }
+
+.quote-attr {
+  margin-top: 32px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .3em;
+  text-transform: uppercase; color: var(--dim);
+  display: flex; align-items: center; gap: 14px;
+}
+.quote-attr::before { content:''; display:block; width:20px; height:1px; background:var(--dim); }
+
+/* ── WORK ── */
+#work {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.work-header {
+  padding: 56px 48px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+
+.work-title {
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+
+.work-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .25em;
+  text-transform: uppercase; color: var(--dim);
+}
+
+.work-item {
+  padding: 52px 48px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 40px;
+  align-items: start;
+  transition: background .3s;
+}
+.work-item:hover { background: var(--acid-dim); }
+.work-item:last-child { border-bottom: none; }
+
+.wi-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .15em;
+  color: var(--acid); padding-top: 8px;
+}
+
+.wi-title {
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1.05;
+  letter-spacing: -.01em;
+  margin-bottom: 14px;
+}
+
+.wi-body {
+  font-size: clamp(14px, 1.5vw, 17px);
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.75;
+  max-width: 560px;
+  letter-spacing: .01em;
+}
+
+.wi-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 8px 14px;
+  white-space: nowrap;
+  align-self: start;
+  margin-top: 6px;
+}
+
+/* ── SIGNAL ── */
+#signal {
+  padding: 120px 48px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.signal-left {
+  position: sticky; top: 100px;
+}
+
+.signal-headline {
+  font-size: clamp(52px, 8vw, 110px);
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: .92;
+  letter-spacing: -.025em;
+}
+
+.signal-headline .acid { color: var(--acid); display: block; }
+
+.signal-right {
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.signal-right p {
+  font-size: clamp(16px, 1.8vw, 21px);
+  font-weight: 300;
+  color: var(--mid);
+  line-height: 1.75;
+  letter-spacing: .01em;
+  padding: 36px 0;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
+.signal-right p strong { color: var(--white); font-weight: 400; font-style: italic; }
+
+.signal-cta {
+  margin-top: 48px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--acid);
+  padding: 18px 32px;
+  text-decoration: none;
+  transition: background .2s, color .2s;
+  font-weight: 400;
+}
+.signal-cta:hover { background: var(--white); }
+.signal-cta::after { content: '↗'; font-size: 13px; }
+
+/* ── CONTACT ── */
+#contact {
+  padding: 120px 48px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.contact-bg-text {
+  position: absolute;
+  bottom: -80px; left: -20px;
+  font-size: clamp(200px, 35vw, 500px);
+  font-weight: 800;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.018);
+  letter-spacing: -.04em;
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.contact-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .3em;
+  text-transform: uppercase; color: var(--dim);
+  margin-bottom: 48px;
+}
+
+.contact-question {
+  font-size: clamp(48px, 9vw, 128px);
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: .9;
+  letter-spacing: -.025em;
+  margin-bottom: 72px;
+}
+
+.contact-question em {
+  font-style: italic;
+  color: var(--acid);
+  font-weight: 300;
+}
+
+.contact-email {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(14px, 2vw, 20px);
+  letter-spacing: .08em;
+  color: var(--white);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+  padding-bottom: 6px;
+  transition: color .2s, border-color .2s;
+  width: fit-content;
+}
+.contact-email:hover { color: var(--acid); border-color: var(--acid); }
+
+footer {
+  padding: 28px 48px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  display: flex; justify-content: space-between;
+}
+footer span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--dim);
+}
+
+/* ── Animations ── */
+@keyframes fadein { from{opacity:0} to{opacity:1} }
+@keyframes slamIn {
+  from { opacity:0; transform: translateY(40px) skewY(2deg); }
+  to   { opacity:1; transform: translateY(0)    skewY(0deg); }
+}
+
+.reveal { opacity:0; transform:translateY(20px); transition:opacity .8s ease, transform .8s cubic-bezier(.16,1,.3,1); }
+.reveal.on { opacity:1; transform:translateY(0); }
+.rd1{transition-delay:.1s} .rd2{transition-delay:.22s} .rd3{transition-delay:.36s}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  nav { padding:20px 24px; }
+  .nav-links { display:none; }
+  #hero { padding:100px 24px 48px; }
+  .hero-bg-num { display:none; }
+  .hero-bottom { flex-direction:column; align-items:flex-start; }
+  .hero-meta { text-align:left; }
+  #quote { grid-template-columns:1fr; padding:80px 24px; gap:40px; }
+  .work-header, .work-item { padding-left:24px; padding-right:24px; }
+  .work-item { grid-template-columns:40px 1fr; }
+  .wi-tag { display:none; }
+  #signal { grid-template-columns:1fr; padding:80px 24px; }
+  .signal-left { position:static; }
+  #contact { padding:80px 24px; }
+  footer { padding:24px; flex-direction:column; gap:8px; }
+}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-r"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">P9 Labs</div>
+  <ul class="nav-links">
+    <li><a href="#work">Work</a></li>
+    <li><a href="#signal">Team</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg-num">9</div>
+  <div class="hero-top">Protocol Nine — Technology Laboratory</div>
+  <div class="hero-words">
+    <div class="hero-line">Everything</div>
+    <div class="hero-line outline">around you</div>
+    <div class="hero-line">was built by</div>
+    <div class="hero-line acid">people.</div>
+  </div>
+  <div class="hero-bottom">
+    <p class="hero-desc">
+      The world evolved. <strong>The rules didn't.</strong> P9 Labs exists at the intersection of that gap — questioning what everyone else stopped looking at, and building what comes next.
+    </p>
+    <div class="hero-meta">
+      p9labs.io<br>
+      Est. 2024<br>
+      Protocol Nine
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<section id="quote">
+  <div class="quote-left reveal">
+    <span class="bar"></span>
+    One<br>Simple<br>Fact.
+  </div>
+  <div class="quote-right reveal rd1">
+    <p class="quote-text">
+      "Everything around you that you call life was made up by people that were <em>no smarter than you</em> — and you can change it, you can influence it, you can build your own things that other people can use."
+    </p>
+    <div class="quote-attr">Steve Jobs, 1994</div>
+  </div>
+</section>
+
+<!-- WORK -->
+<section id="work">
+  <div class="work-header reveal">
+    <div class="work-title">What<br>We Do</div>
+    <div class="work-count">03 principles</div>
+  </div>
+
+  <div class="work-item reveal">
+    <div class="wi-num">01</div>
+    <div>
+      <div class="wi-title">Question Everything Settled</div>
+      <p class="wi-body">Not to criticise — to improve. P9 Labs applies one lens across every field: does this still make sense, given what we now know and what we can now build?</p>
+    </div>
+    <div class="wi-tag">The Lens</div>
+  </div>
+
+  <div class="work-item reveal rd1">
+    <div class="wi-num">02</div>
+    <div>
+      <div class="wi-title">Build Proof of Concepts</div>
+      <p class="wi-body">Ideas developed to the point of reality. Concrete enough to demonstrate, share, and hand to the world — or pursue with partners who can take them further.</p>
+    </div>
+    <div class="wi-tag">The Output</div>
+  </div>
+
+  <div class="work-item reveal rd2">
+    <div class="wi-num">03</div>
+    <div>
+      <div class="wi-title">Across Any Domain</div>
+      <p class="wi-body">The lens doesn't change. The domain does. P9 Labs brings together specialists whose instinct is to look at their field and see what everyone else stopped questioning.</p>
+    </div>
+    <div class="wi-tag">The Scope</div>
+  </div>
+</section>
+
+<!-- SIGNAL -->
+<section id="signal">
+  <div class="signal-left reveal">
+    <div class="signal-headline">
+      See<br>What<br>Others<br>
+      <span class="acid">Miss.</span>
+    </div>
+  </div>
+  <div class="signal-right">
+    <p class="reveal">
+      P9 Labs is built around specialists who share one instinct — the refusal to accept that something exists in its current form <strong>simply because it always has.</strong>
+    </p>
+    <p class="reveal rd1">
+      We are not a startup. Not an agency. Not a research institute. We are a <strong>laboratory with a philosophy</strong> — and the people here are defined by how they think, not what they've done.
+    </p>
+    <p class="reveal rd2">
+      If you see the gap between what exists and what <strong>should exist</strong> — we want to know you.
+    </p>
+    <a href="https://github.com/p9labs-io" target="_blank" class="signal-cta reveal rd3">
+      p9labs-io on GitHub
+    </a>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="contact-bg-text">P9</div>
+  <div class="contact-label reveal">Start the conversation</div>
+  <h2 class="contact-question reveal rd1">
+    What would<br><em>you</em><br>rebuild?
+  </h2>
+  <a href="mailto:hello@p9labs.io" class="contact-email reveal rd2">hello@p9labs.io</a>
+</section>
+
+<footer>
+  <span>© 2024 P9 Labs — Protocol Nine</span>
+  <span>p9labs.io</span>
+</footer>
+
+<script>
+  // Cursor
+  const cur = document.getElementById('cur');
+  const ring = document.getElementById('cur-r');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e => {
+    mx=e.clientX; my=e.clientY;
+    cur.style.left=mx+'px'; cur.style.top=my+'px';
+  });
+  (function loop(){
+    rx+=(mx-rx)*.09; ry+=(my-ry)*.09;
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(loop);
+  })();
+  document.querySelectorAll('a').forEach(a => {
+    a.addEventListener('mouseenter',()=>{ cur.style.width='24px'; cur.style.height='24px'; });
+    a.addEventListener('mouseleave',()=>{ cur.style.width='4px'; cur.style.height='4px'; });
+  });
+
+  // Scroll reveal
+  const obs = new IntersectionObserver(entries =>
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('on'); }),
+    { threshold:.1 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
