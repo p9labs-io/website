@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>P9 Labs</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=Orbitron:wght@700;900&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -60,26 +63,25 @@ nav {
 .logo {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 6px;
 }
 
 .logo-mark {
-  font-family: 'Syne', sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -.04em;
-  color: var(--acid);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  color: var(--white);
   line-height: 1;
 }
 
 .logo-sub {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  font-weight: 400;
-  letter-spacing: .22em;
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: .28em;
   color: var(--mid);
   text-transform: uppercase;
-  padding-bottom: 1px;
 }
 
 .nav-tag {
@@ -199,20 +201,11 @@ footer {
 
   <footer>
     <div class="f-left">© <span id="yr"></span> P9 Labs</div>
-    <a href="mailto:hello@p9labs.io" class="f-email">hello@p9labs.io</a>
+    <a href="/cdn-cgi/l/email-protection#9cf4f9f0f0f3dceca5f0fdfeefb2f5f3" class="f-email"><span class="__cf_email__" data-cfemail="89e1ece5e5e6c9f9b0e5e8ebfaa7e0e6">[email&#160;protected]</span></a>
     <div class="f-right"><div class="dot"></div> Active</div>
   </footer>
 
 </div>
 
-<script>
-  document.getElementById('yr').textContent = new Date().getFullYear();
-  const cur = document.getElementById('cur');
-  document.addEventListener('mousemove', e => {
-    cur.style.opacity = '1';
-    cur.style.left = e.clientX + 'px';
-    cur.style.top = e.clientY + 'px';
-  });
-</script>
-</body>
-</html>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  document.getElementById('yr').textContent = new Date().getFullYear(
