@@ -6,205 +6,171 @@
 <title>P9 Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;1,300&family=IBM+Plex+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #0c0c0b;
-  --white: #e8e4da;
-  --dim: #4a4843;
-  --mid: #6e6b66;
+  --bg: #0b0b0a;
+  --white: #ece8de;
+  --mid: #5a5753;
+  --dim: #272521;
   --acid: #c8ff00;
 }
+
+html, body { height: 100%; }
 
 body {
   background: var(--bg);
   color: var(--white);
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 300;
-  min-height: 100vh;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  padding: 56px;
+  font-family: 'Syne', sans-serif;
   cursor: none;
 }
 
-/* Cursor */
 #cur {
-  position: fixed; width: 4px; height: 4px;
-  background: var(--acid); border-radius: 50%;
-  pointer-events: none; z-index: 9999;
-  transform: translate(-50%,-50%);
-  transition: opacity .2s;
+  position: fixed;
+  width: 5px; height: 5px;
+  background: var(--acid);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity .3s;
 }
 
-/* Main */
-main {
+/* ── Full screen layout ── */
+.screen {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 56px 1fr 56px;
+  padding: 0 56px;
+}
+
+/* ── Nav ── */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--dim);
+  opacity: 0;
+  animation: fadein .6s ease .1s forwards;
+}
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.logo-mark {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  color: var(--acid);
+  line-height: 1;
+}
+
+.logo-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: .22em;
+  color: var(--mid);
+  text-transform: uppercase;
+  padding-bottom: 1px;
+}
+
+.nav-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--mid);
+}
+
+/* ── Center ── */
+.center {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  max-width: 680px;
-  padding: 80px 0;
+  gap: 40px;
 }
 
-/* Logo */
-.mark {
+.tagline {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: .25em;
-  text-transform: uppercase;
-  color: var(--acid);
-  margin-bottom: 72px;
+  font-size: 10px; letter-spacing: .32em;
+  text-transform: uppercase; color: var(--mid);
   opacity: 0;
-  animation: fadein .5s ease .1s forwards;
+  animation: fadein .6s ease .4s forwards;
 }
 
-/* Headline */
 h1 {
-  font-size: clamp(28px, 4vw, 48px);
-  font-weight: 300;
-  line-height: 1.25;
-  letter-spacing: -.01em;
-  margin-bottom: 32px;
+  font-size: clamp(48px, 8.5vw, 130px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.03em;
   opacity: 0;
-  animation: fadein .5s ease .25s forwards;
+  animation: fadein .8s cubic-bezier(.16,1,.3,1) .6s forwards;
 }
 
-h1 em {
-  font-style: italic;
-  color: var(--mid);
-}
+h1 .accent { color: var(--acid); }
 
-/* Body */
-.body {
-  font-size: clamp(15px, 1.6vw, 18px);
-  line-height: 1.8;
-  color: var(--mid);
-  max-width: 520px;
-  margin-bottom: 56px;
-  opacity: 0;
-  animation: fadein .5s ease .4s forwards;
-}
-
-.body strong {
-  color: var(--white);
+.sub {
+  font-size: clamp(14px, 1.5vw, 18px);
   font-weight: 400;
-}
-
-/* Items */
-.items {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin-bottom: 64px;
-  opacity: 0;
-  animation: fadein .5s ease .55s forwards;
-  border-top: 1px solid rgba(255,255,255,.06);
-}
-
-.item {
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  align-items: baseline;
-}
-
-.item-dot {
-  width: 4px; height: 4px;
-  background: var(--acid);
-  border-radius: 50%;
-  margin-top: 8px;
-  justify-self: center;
-}
-
-.item-text {
-  font-size: clamp(14px, 1.5vw, 16px);
   color: var(--mid);
   line-height: 1.7;
-}
-
-.item-text strong {
-  color: var(--white);
-  font-weight: 400;
-  display: block;
-  margin-bottom: 2px;
-  font-size: clamp(15px, 1.6vw, 17px);
-}
-
-/* Links */
-.links {
-  display: flex;
-  gap: 32px;
-  align-items: center;
+  max-width: 480px;
   opacity: 0;
-  animation: fadein .5s ease .7s forwards;
+  animation: fadein .6s ease 1s forwards;
 }
 
-.link-primary {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--bg);
-  background: var(--acid);
-  padding: 13px 24px;
-  text-decoration: none;
-  transition: opacity .2s;
-}
-.link-primary:hover { opacity: .85; }
+.sub strong { color: var(--white); font-weight: 400; }
 
-.link-secondary {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: .18em;
-  text-transform: uppercase;
-  color: var(--dim);
-  text-decoration: none;
-  transition: color .2s;
-  display: flex; align-items: center; gap: 8px;
-}
-.link-secondary:hover { color: var(--white); }
-.link-secondary::after { content: '↗'; font-size: 12px; }
-
-/* Footer */
+/* ── Footer bar ── */
 footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid rgba(255,255,255,.06);
-  padding-top: 28px;
+  border-top: 1px solid var(--dim);
   opacity: 0;
-  animation: fadein .5s ease .85s forwards;
+  animation: fadein .6s ease 1.3s forwards;
 }
 
-footer span {
+.f-left {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; letter-spacing: .18em;
-  text-transform: uppercase; color: var(--dim);
+  font-size: 9px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--mid);
 }
 
-.status {
+.f-email {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .12em;
+  color: var(--white); text-decoration: none;
+  transition: color .2s;
+}
+.f-email:hover { color: var(--acid); }
+
+.f-right {
   display: flex; align-items: center; gap: 8px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; letter-spacing: .15em;
-  text-transform: uppercase; color: var(--dim);
+  font-size: 9px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--mid);
 }
 
-.status-dot {
-  width: 6px; height: 6px;
-  background: var(--acid);
-  border-radius: 50%;
-  animation: blink 2.5s ease-in-out infinite;
+.dot {
+  width: 5px; height: 5px;
+  background: var(--acid); border-radius: 50%;
+  animation: blink 2.8s ease-in-out infinite;
 }
 
-@keyframes fadein { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+@keyframes fadein { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes blink  { 0%,100% { opacity: 1; } 50% { opacity: .15; } }
 
-@media(max-width:600px){
-  body { padding:32px 24px; }
-  .links { flex-direction:column; align-items:flex-start; gap:20px; }
-  footer { flex-direction:column; align-items:flex-start; gap:12px; }
+@media (max-width: 680px) {
+  .screen { padding: 0 28px; }
+  h1 { font-size: clamp(44px, 14vw, 72px); }
+  .f-email { display: none; }
 }
 </style>
 </head>
@@ -212,57 +178,41 @@ footer span {
 
 <div id="cur"></div>
 
-<main>
-  <div class="mark">P9 Labs</div>
+<div class="screen">
 
-  <h1>Good solutions<br><em>shouldn't feel far away.</em></h1>
+  <nav>
+    <div class="logo">
+      <span class="logo-mark">P9</span><span class="logo-sub">LABS</span>
+    </div>
+    <div class="nav-tag">p9labs.io</div>
+  </nav>
 
-  <p class="body">
-    Technology moves fast. But somewhere along the way,
-    solutions drift — they grow complex, layered, distant
-    from the people who need them. <strong>P9 Labs builds
-    to close that distance.</strong> We take existing things
-    apart and reassemble them closer to the problem.
-  </p>
-
-  <div class="items">
-    <div class="item">
-      <div class="item-dot"></div>
-      <div class="item-text">
-        <strong>Distance is the problem</strong>
-        Between a need and its solution, something usually got lost. We find it.
-      </div>
-    </div>
-    <div class="item">
-      <div class="item-dot"></div>
-      <div class="item-text">
-        <strong>Reinvention is the method</strong>
-        Not invention from scratch — reimagining what already exists, stripped back to what matters.
-      </div>
-    </div>
-    <div class="item">
-      <div class="item-dot"></div>
-      <div class="item-text">
-        <strong>Code is the output</strong>
-        Every idea becomes something real and testable. Built to demonstrate, not just describe.
-      </div>
-    </div>
+  <div class="center">
+    <div class="tagline">Technology Laboratory</div>
+    <h1>Built once.<br><span class="accent">Built better.</span></h1>
+    <p class="sub">
+      Most things around us were designed for a world that has since moved on.<br>
+      <strong>We take what exists and rebuild it
+      closer to the way it should work.</strong>
+    </p>
   </div>
 
-  <div class="links">
-    <a href="https://github.com/p9labs-io" target="_blank" class="link-primary">View on GitHub</a>
-    <a href="/cdn-cgi/l/email-protection#6d05080101022d1d54010c0f1e430402" class="link-secondary"><span class="__cf_email__" data-cfemail="87efe2ebebe8c7f7beebe6e5f4a9eee8">[email&#160;protected]</span></a>
-  </div>
-</main>
+  <footer>
+    <div class="f-left">© <span id="yr"></span> P9 Labs</div>
+    <a href="mailto:hello@p9labs.io" class="f-email">hello@p9labs.io</a>
+    <div class="f-right"><div class="dot"></div> Active</div>
+  </footer>
 
-<footer>
-  <span>© <span id="yr"></span> P9 Labs</span>
-  <div class="status">
-    <div class="status-dot"></div>
-    Active
-  </div>
-  <span>p9labs.io</span>
-</footer>
+</div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
-  document.getElementById('yr').textConte
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  const cur = document.getElementById('cur');
+  document.addEventListener('mousemove', e => {
+    cur.style.opacity = '1';
+    cur.style.left = e.clientX + 'px';
+    cur.style.top = e.clientY + 'px';
+  });
+</script>
+</body>
+</html>
