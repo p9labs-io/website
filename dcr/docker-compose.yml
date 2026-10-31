@@ -1,0 +1,72 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # target: runtime
+      # args:
+      #   APP_ENV: production
+    image: app:latest
+    container_name: app_service
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - APP_PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal_network
+      - public_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.50"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    # volumes:
+    #   - ./:/app:ro
+    # security_opt:
+    #   - no-new-privileges:true
+    # read_only: true
+    # tmpfs:
+    #   - /tmp
+
+  db:
+    image: postgres:16-alpine
+    container_name: app_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - internal_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-appdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  internal_network:
+    driver: bridge
+    internal: true
+  public_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+
