@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+# Build: docker build -f Dockerfile.rust --build-arg APP_NAME=myapp -t app .
+ARG RUST_VERSION=1.99
+ARG APP_NAME=app
+
+# ---------- builder (glibc) ----------
+FROM rust:${RUST_VERSION}-slim-trixie AS builder
+ARG APP_NAME
+WORKDIR /app
+
+# Needed for crates using openssl-sys (reqwest default features, etc.)
+# Prefer rustls features to avoid this entirely
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+
+# target/ is a cache mount (not in the image) -> copy binary out in the same RUN
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --locked --bin ${APP_NAME} && \
+    cp target/release/${APP_NAME} /app/server
+# Workspace member: cargo build --release --locked -p <crate>
+
+# Smaller binary: add to Cargo.toml
+# [profile.release]
+# strip = true
+# lto = true
+# codegen-units = 1
+# panic = "abort"
+
+# ---------- builder (musl, fully static -> scratch / distroless/static) ----------
+# FROM rust:${RUST_VERSION}-alpine AS builder
+# ARG APP_NAME
+# WORKDIR /app
+# RUN apk add --no-cache musl-dev
+# # openssl on musl: apk add openssl-dev openssl-libs-static
+# COPY . .
+# RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+#     --mount=type=cache,target=/usr/local/cargo/git \
+#     --mount=type=cache,target=/app/target \
+#     cargo build --release --locked --bin ${APP_NAME} && \
+#     cp target/release/${APP_NAME} /app/server
+
+# ---------- cargo-chef alternative (dependency layer caching without BuildKit cache mounts, good for CI) ----------
+# FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION}-slim-trixie AS chef
+# WORKDIR /app
+# FROM chef AS planner
+# COPY . .
+# RUN cargo chef prepare --recipe-path recipe.json
+# FROM chef AS builder
+# ARG APP_NAME
+# COPY --from=planner /app/recipe.json recipe.json
+# RUN cargo chef cook --release --recipe-path recipe.json
+# COPY . .
+# RUN cargo build --release --locked --bin ${APP_NAME} && cp target/release/${APP_NAME} /app/server
+
+# ---------- runtime ----------
+# Runtime image options:
+#   distroless/cc-debian13      -> glibc builder (default above); has CA certs, no shell
+#   distroless/static-debian13  -> musl builder
+#   scratch                     -> musl builder, copy CA certs yourself
+#   debian:trixie-slim         -> need shell/curl or apt libs (libssl3, etc.)
+# NOTE: runtime glibc must be >= builder glibc -> keep both on trixie (debian13)
+FROM gcr.io/distroless/cc-debian13:nonroot
+
+WORKDIR /
+
+COPY --from=builder /app/server /server
+# COPY --from=builder /app/config.toml /config.toml
+# For scratch only:
+# COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+ENV RUST_LOG=info
+# ENV RUST_BACKTRACE=1
+
+EXPOSE 8080
+USER nonroot:nonroot
+
+# Distroless has no shell/curl -> implement a subcommand in the binary
+# HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD ["/server", "healthcheck"]
+
+ENTRYPOINT ["/server"]

@@ -1,0 +1,80 @@
+# syntax=docker/dockerfile:1
+# Build backend:   docker build -f Dockerfile.node -t app .
+# Build frontend:  docker build -f Dockerfile.node --target static -t web .   (SPA / static site -> nginx)
+ARG NODE_VERSION=24
+
+# ---------- base ----------
+FROM node:${NODE_VERSION}-alpine AS base
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+# Native modules (bcrypt, sharp, etc.) on alpine:
+# RUN apk add --no-cache libc6-compat python3 make g++
+# pnpm / yarn via corepack (bundled up to Node 24; on Node 25+: npm i -g corepack)
+# RUN corepack enable
+
+# ---------- deps: production dependencies only ----------
+FROM base AS deps
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
+# pnpm: COPY package.json pnpm-lock.yaml ./
+#       RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --prod
+# yarn: COPY package.json yarn.lock .yarnrc.yml ./
+#       RUN --mount=type=cache,target=/root/.yarn/berry/cache yarn workspaces focus --production
+
+# ---------- build: all deps + compile (TS, bundler, Next.js...) ----------
+FROM base AS build
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
+# pnpm: RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
+COPY . .
+# Build-time env (baked into frontend bundles - never put secrets here)
+# ARG VITE_API_URL
+# ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build
+# RUN npm test
+
+# ---------- static: frontend served by nginx (use --target static) ----------
+FROM nginx:1.30-alpine AS static
+# Non-root alternative (listens on 8080): FROM nginxinc/nginx-unprivileged:1.30-alpine AS static
+COPY --from=build /app/dist /usr/share/nginx/html
+# Vite -> dist/, CRA -> build/, Angular -> dist/<app>/browser, Astro -> dist/
+# SPA routing (fallback to index.html): provide nginx-static.conf with `try_files $uri $uri/ /index.html;`
+# COPY nginx-static.conf /etc/nginx/conf.d/default.conf   # template in this folder
+EXPOSE 80
+# HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost/ >/dev/null || exit 1
+
+# ---------- runtime: backend (default target, keep LAST) ----------
+FROM node:${NODE_VERSION}-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+# Node as PID 1 doesn't forward signals well -> tini here OR `init: true` in compose
+RUN apk add --no-cache tini
+
+COPY --from=deps  --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node package.json ./
+# Plain JS (no build step): replace the dist COPY with
+# COPY --chown=node:node . .
+
+# Next.js standalone (next.config: output: "standalone") - replace the 3 COPY lines above with:
+# COPY --from=build --chown=node:node /app/.next/standalone ./
+# COPY --from=build --chown=node:node /app/.next/static ./.next/static
+# COPY --from=build --chown=node:node /app/public ./public
+# ENV HOSTNAME=0.0.0.0 PORT=3000
+
+# Built-in non-root user (uid 1000)
+USER node
+
+# ENV NODE_OPTIONS="--max-old-space-size=768"   # ~75% of container memory limit
+
+EXPOSE 3000
+
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+#   CMD wget -qO- http://localhost:3000/health || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
+# Run node directly, not `npm start` (npm swallows SIGTERM)
+CMD ["node", "dist/index.js"]
+# CMD ["node", "server.js"]        # Next.js standalone

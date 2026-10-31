@@ -1,0 +1,62 @@
+// /etc/docker/daemon.json reference - all useful options with explanations.
+// dockerd REJECTS comments and unknown keys: copy only the lines you need into daemon.json (plain JSON).
+// Validate: sudo dockerd --validate --config-file /etc/docker/daemon.json
+// Apply:    sudo systemctl restart docker
+{
+  // ---- Logging ----
+  // json-file: classic, works with `docker logs`. local: compressed + more efficient, also works with `docker logs`
+  "log-driver": "local",
+  "log-opts": { "max-size": "20m", "max-file": "5" },
+
+  // ---- Storage ----
+  // Move images/containers/volumes to a bigger disk (stop docker + rsync old dir first)
+  "data-root": "/mnt/docker-data",
+  "storage-driver": "overlay2",
+  // containerd image store: multi-platform images locally, required for some buildx features
+  "features": { "containerd-snapshotter": true },
+
+  // ---- Networking ----
+  // Avoid 172.17-31.x clashes with VPN/office networks. bip = docker0 bridge address
+  "bip": "10.199.0.1/24",
+  "default-address-pools": [{ "base": "10.200.0.0/16", "size": 24 }],
+  "dns": ["1.1.1.1", "8.8.8.8"],
+  "ipv6": false,
+  // Use iptables DNAT instead of docker-proxy processes for published ports
+  "userland-proxy": false,
+  // Default bind address for published ports (-p 8080:80 -> 127.0.0.1:8080). Safer on public servers
+  "ip": "127.0.0.1",
+
+  // ---- Registry ----
+  "registry-mirrors": ["https://mirror.gcr.io"],
+  "insecure-registries": ["registry.local:5000"],
+  "max-concurrent-downloads": 10,
+  "max-concurrent-uploads": 5,
+
+  // ---- Runtime ----
+  // Keep containers running while dockerd restarts/upgrades. NOT compatible with Swarm
+  "live-restore": true,
+  "shutdown-timeout": 30,
+  // Run tini as PID 1 in every container (same as --init / compose init: true)
+  "init": true,
+  "default-ulimits": { "nofile": { "Name": "nofile", "Hard": 65535, "Soft": 65535 } },
+  // GPU: after installing nvidia-container-toolkit run `nvidia-ctk runtime configure --runtime=docker`
+  // "runtimes": { "nvidia": { "path": "nvidia-container-runtime", "args": [] } },
+
+  // ---- Security ----
+  // Map container root to an unprivileged host uid range. Breaks bind-mount permissions -> test first
+  "userns-remap": "default",
+  // Equivalent of --security-opt no-new-privileges for all containers
+  "no-new-privileges": true,
+  // Disable inter-container traffic on the default bridge (user-defined networks unaffected)
+  "icc": false,
+
+  // ---- Build ----
+  // BuildKit is default since 23.0. GC prevents build cache filling the disk
+  "builder": { "gc": { "enabled": true, "defaultKeepStorage": "20GB" } },
+
+  // ---- Monitoring / debug ----
+  // Prometheus metrics endpoint
+  "metrics-addr": "127.0.0.1:9323",
+  "debug": false,
+  "log-level": "info"
+}

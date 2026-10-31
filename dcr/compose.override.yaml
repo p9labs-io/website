@@ -1,0 +1,29 @@
+# compose.override.yaml - dev-only overrides, auto-merged with compose.yaml / docker-compose.yml
+# Skip it in prod:  docker compose -f compose.yaml up -d
+services:
+  app:
+    # build:
+    #   target: build                # stage with dev deps/tools (Node: build, Python: builder). Go/Rust: keep runtime
+    restart: "no"
+    environment:
+      APP_ENV: development
+      # LOG_LEVEL: debug
+    # Ports from the base file are kept; list only EXTRA ports here (duplicates -> "port already allocated")
+    # ports:
+      # - "127.0.0.1:5005:5005"      # Java remote debug
+      # - "127.0.0.1:5678:5678"      # Python debugpy
+      # - "127.0.0.1:2345:2345"      # Go delve
+    volumes:
+      - ./:/app                      # live code mount (Python/Node; compiled Go/Rust need rebuild or air/cargo-watch)
+      # - /app/node_modules          # keep container's node_modules
+      # - /app/.venv
+    # command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    # command: ["air"]               # Go live reload
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"        # connect from host tools
