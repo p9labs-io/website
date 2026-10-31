@@ -1,0 +1,176 @@
+# GitHub Actions: build multi-arch Docker image -> push to GHCR -> (optional) deploy over SSH
+# Save as: .github/workflows/docker.yml
+#
+# Tags produced (via docker/metadata-action):
+#   push to main        -> :main, :sha-abc1234, :latest
+#   git tag v1.2.3      -> :1.2.3, :1.2, :1, :latest
+#   pull request        -> build only (no push), :pr-42
+#
+# GHCR needs no secrets (uses GITHUB_TOKEN). After first push: repo -> Packages -> set visibility.
+# Pull on server: echo $PAT | docker login ghcr.io -u USER --password-stdin   (PAT scope: read:packages)
+
+name: docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+    # paths-ignore: ["**.md", "docs/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 4 * * 1"          # weekly rebuild to pick up base-image security fixes
+
+# Cancel older runs of the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}      # owner/repo (must be lowercase for GHCR attestations)
+  # Docker Hub instead: REGISTRY: docker.io, IMAGE_NAME: youruser/app
+  DOCKERFILE: Dockerfile
+  PLATFORMS: linux/amd64,linux/arm64       # arm64 via QEMU is slow (esp. Rust/Java); drop if not needed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Native arm64 runner (faster than QEMU), use with a matrix + merge step: runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write          # push to GHCR
+      id-token: write          # attestations
+      attestations: write
+      # security-events: write # upload Trivy SARIF
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          # Docker Hub:
+          # username: ${{ secrets.DOCKERHUB_USERNAME }}
+          # password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Optional: run tests inside the build (needs a `test` stage in the Dockerfile)
+      # - name: Test
+      #   uses: docker/build-push-action@v7
+      #   with:
+      #     context: .
+      #     file: ${{ env.DOCKERFILE }}
+      #     target: test
+      #     cache-from: type=gha
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          # target: runtime
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || env.PLATFORMS }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+          # Build secrets (RUN --mount=type=secret,id=npm_token):
+          # secrets: |
+          #   npm_token=${{ secrets.NPM_TOKEN }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest build provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # ---- Optional: vulnerability scan (fails on CRITICAL/HIGH with a fix available) ----
+      # - name: Trivy scan
+      #   if: github.event_name != 'pull_request'
+      #   uses: aquasecurity/trivy-action@v0.36.0
+      #   with:
+      #     image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+      #     severity: CRITICAL,HIGH
+      #     ignore-unfixed: true
+      #     exit-code: "1"
+      #     # format: sarif
+      #     # output: trivy.sarif
+      # - uses: github/codeql-action/upload-sarif@v4   # show results in Security tab
+      #   if: always()
+      #   with:
+      #     sarif_file: trivy.sarif
+
+  # ---- Optional: deploy to a server with docker compose over SSH ----
+  # Secrets: SSH_HOST, SSH_USER, SSH_KEY (private key), optional SSH_PORT
+  # Server: compose file uses image: ghcr.io/owner/repo:latest (or ${TAG}), already logged in to ghcr.io
+  # deploy:
+  #   needs: build
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   environment: production        # add required reviewers in repo Settings -> Environments
+  #   steps:
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1.2.5
+  #       with:
+  #         host: ${{ secrets.SSH_HOST }}
+  #         username: ${{ secrets.SSH_USER }}
+  #         key: ${{ secrets.SSH_KEY }}
+  #         port: ${{ secrets.SSH_PORT || 22 }}
+  #         script: |
+  #           set -e
+  #           cd /opt/myproject
+  #           docker compose pull app
+  #           docker compose up -d --wait app
+  #           docker image prune -f
+
+  # ---- Matrix: several images from one repo (replace `build` env/file with matrix values) ----
+  # strategy:
+  #   matrix:
+  #     include:
+  #       - name: api
+  #         dockerfile: api/Dockerfile
+  #         context: api
+  #       - name: web
+  #         dockerfile: web/Dockerfile
+  #         context: web
+  # then use: images: ghcr.io/${{ github.repository }}-${{ matrix.name }}
+  #           context: ${{ matrix.context }} / file: ${{ matrix.dockerfile }}

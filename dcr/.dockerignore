@@ -1,0 +1,64 @@
+# .dockerignore - keeps build context small and secrets out of images
+# Rename/copy to `.dockerignore` next to your Dockerfile
+
+# VCS / CI
+.git
+.gitignore
+.github
+.gitlab-ci.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Editors / OS
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / tmp
+*.log
+tmp/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+npm-debug.log*
+.next/
+dist/
+
+# Java
+target/
+build/
+.gradle/
+*.class
+
+# Go (remove vendor/ if you commit vendored deps and build with -mod=vendor)
+bin/
+vendor/
+
+# Docs (remove README line if pyproject.toml / package.json references it)
+README*.md
+docs/
