@@ -1,0 +1,166 @@
+#!/usr/sbin/nft -f
+
+###############################################################################
+# POLICY-BASED ROUTING (PBR) SETUP:
+# Run once on the host (or integrate into an interface init script):
+#
+# 1. (Optional) Assign a persistent name for routing table 100:
+#    grep -q "100 pbr_out" /etc/iproute2/rt_tables || echo "100 pbr_out" >> /etc/iproute2/rt_tables
+#
+# 2. Add a default route inside dedicated table 100:
+#    ip route add default dev wg0 table pbr_out
+#    (or via a specific gateway IP: ip route add default via 192.0.2.1 dev wg0 table pbr_out)
+#
+# 3. Add an RPDB rule to route marked packets (0x64 / 100 dec) via table pbr_out:
+#    ip rule add fwmark 0x64 table pbr_out priority 1000
+#
+# 4. Set rp_filter to loose mode (mandatory for asymmetric tunnel routing):
+#    sysctl -w net.ipv4.conf.all.rp_filter=2
+#    sysctl -w net.ipv4.conf.default.rp_filter=2
+#    sysctl -w net.ipv4.conf.wg0.rp_filter=2
+###############################################################################
+
+# Flush previous ruleset
+flush ruleset
+
+# Variable definitions
+define WAN_IF     = "eth0"
+define VPN_IF     = "wg0"
+define LAN_IF     = "eth1"
+define PBR_MARK   = 0x64
+
+table inet firewall {
+
+    # -------------------------------------------------------------------------
+    # SETS
+    # -------------------------------------------------------------------------
+
+    # Local subnets that must bypass PBR to preserve LAN/management reachability
+    set local_subnets {
+        type ipv4_addr
+        flags interval
+        elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }
+    }
+
+    # LAN clients whose Internet egress must be routed through the tunnel
+    set pbr_client_ips {
+        type ipv4_addr
+        flags interval
+        elements = { 192.168.1.50 }
+    }
+
+    # Destination ports to route through the tunnel
+    set pbr_target_ports {
+        type inet_service
+        elements = { 51820 }
+    }
+
+    set allowed_tcp_ports {
+        type inet_service
+        elements = { 22, 80, 443 }
+    }
+
+    # -------------------------------------------------------------------------
+    # MANGLE: Packet marking (fwmark / ct mark) for RPDB integration
+    # -------------------------------------------------------------------------
+
+    # prerouting hook: executes before routing decision for transit packets
+    chain mangle_prerouting {
+        type filter hook prerouting priority mangle; policy accept;
+
+        # Restore conntrack connection mark to packet mark if already set
+        ct mark != 0 meta mark set ct mark
+
+        # Bypass marking for local destinations (LAN hosts, gateway, router services)
+        ip daddr @local_subnets return
+
+        # Mark traffic matching client set or target destination ports
+        ip saddr @pbr_client_ips meta mark set $PBR_MARK
+        udp dport @pbr_target_ports meta mark set $PBR_MARK
+
+        # Save packet mark to conntrack state for symmetric response routing
+        meta mark != 0 ct mark set meta mark
+    }
+
+    # output hook: executes for locally generated traffic from host processes
+    # Must use 'type route' to force kernel to rerun route lookup after marking
+    chain mangle_output {
+        type route hook output priority mangle; policy accept;
+
+        # Restore mark from conntrack
+        ct mark != 0 meta mark set ct mark
+
+        # Bypass marking for local destinations
+        ip daddr @local_subnets return
+
+        # Mark locally generated traffic (triggers kernel reroute lookup)
+        udp dport @pbr_target_ports meta mark set $PBR_MARK
+
+        # Save mark to conntrack
+        meta mark != 0 ct mark set meta mark
+    }
+
+    # -------------------------------------------------------------------------
+    # MANGLE: TCP MSS clamping for tunnel MTU adjustments
+    # -------------------------------------------------------------------------
+    chain mangle_forward {
+        type filter hook forward priority mangle; policy accept;
+
+        # Clamp TCP SYN MSS to prevent PMTU blackholes across tunnels
+        tcp flags syn tcp option maxseg size set rt mtu
+    }
+
+    # -------------------------------------------------------------------------
+    # NAT: Source NAT / Masquerade
+    # -------------------------------------------------------------------------
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+
+        # Masquerade traffic routed via the PBR tunnel interface
+        oifname $VPN_IF ip saddr @pbr_client_ips masquerade
+
+        # Standard outbound masquerade for default WAN egress
+        oifname $WAN_IF masquerade
+    }
+
+    # -------------------------------------------------------------------------
+    # FILTER: Base packet filtering
+    # -------------------------------------------------------------------------
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # Allow loopback interface traffic
+        iifname "lo" accept
+
+        # Drop invalid state packets early
+        ct state invalid drop
+
+        # Allow established and related connections
+        ct state established,related accept
+
+        # Allow ICMP / Ping and PMTU discovery
+        ip protocol icmp accept
+        ip6 nexthdr ipv6-icmp accept
+
+        # Inbound access for specified management and service ports
+        tcp dport @allowed_tcp_ports accept
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+
+        ct state invalid drop
+        ct state established,related accept
+
+        # Allow forwarding of marked policy-routed client traffic out the tunnel
+        meta mark $PBR_MARK oifname $VPN_IF accept
+
+        # Allow regular LAN clients egress via WAN (if needed)
+        iifname $LAN_IF oifname $WAN_IF accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}
+
