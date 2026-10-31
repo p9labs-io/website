@@ -1,0 +1,59 @@
+flush ruleset
+
+table inet filter {
+    # Publicly accessible TCP services (HTTP, HTTPS)
+    set public_tcp {
+        type inet_service
+        elements = { 80, 443 }
+    }
+    #nft add element inet filter public_tcp { 8080 }
+    #nft delete element inet filter public_tcp { 80 }
+
+    # Trusted IPv4 addresses (e.g., dedicated admin jump hosts)
+    set admin_v4 {
+        type ipv4_addr
+        elements = { 203.0.113.50 }
+    }
+
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # 1. Allow local loopback traffic
+        iif "lo" accept
+
+        # 2. Drop invalid packets early to save resources
+        ct state invalid drop
+
+        # 3. Allow established and related connections
+        ct state established,related accept
+
+        # 4. Essential ICMP for IPv4 (PMTU discovery & rate-limited ping)
+        ip protocol icmp icmp type { destination-unreachable, time-exceeded } accept
+        ip protocol icmp icmp type echo-request limit rate 5/second accept
+
+        # 5. Essential ICMPv6 (NDP, router/neighbor advertisements, PMTU discovery)
+        ip6 nexthdr icmpv6 icmpv6 type { 
+            destination-unreachable, packet-too-big, time-exceeded, parameter-problem, 
+            echo-request, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert 
+        } accept
+
+        # 6. SSH (port 22) brute-force protection: max 10 new attempts/minute per IP
+        tcp dport 22 ct state new meter ssh-meter { ip saddr limit rate over 10/minute } drop
+        tcp dport 22 ct state new accept
+        #ip saddr @admin_v4 tcp dport 22 ct state new accept
+
+        # 7. Expose public web services defined in the set
+        tcp dport @public_tcp ct state new counter accept
+    }
+
+    chain forward {
+        # Drop all transit traffic on standalone hosts
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        # Allow all outbound traffic initiated by the host
+        type filter hook output priority filter; policy accept;
+    }
+}
+
