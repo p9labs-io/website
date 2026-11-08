@@ -1,5 +1,3 @@
-#!/usr/sbin/nft -f
-
 ###############################################################################
 # POLICY-BASED ROUTING (PBR) SETUP:
 # Run once on the host (or integrate into an interface init script):
