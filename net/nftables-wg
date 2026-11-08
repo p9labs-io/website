@@ -7,7 +7,7 @@ table inet filter {
     set wg_trusted_clients {
         type ipv4_addr
         flags interval
-        elements = { <SPOKE1_TUNNEL_IP>, <SPOKE2_TUNNEL_IP>, <CLIENT1_DIRECT_IP>, <CLIENT2_DIRECT_IP> }
+        elements = { <SPOKE1_TUNNEL_IP>, <CLIENT1_DIRECT_IP>, <CLIENT2_DIRECT_IP> }
     }
 
     set wg_rerouted_clients {
@@ -20,11 +20,11 @@ table inet filter {
     set private_networks {
         type ipv4_addr
         flags interval
-        elements = { <WG_SUBNET>, <SPOKE1_SITE_SUBNET>, <SPOKE2_SITE_SUBNET> }
+        elements = { <WG_SUBNET>, <SPOKE1_SITE_SUBNET> }
     }
 
     # -------------------------------------------------------------
-    # INPUT CHAIN: Traffic directed to the HUB host itself
+    # INPUT CHAIN: Traffic directed to the host itself
     # -------------------------------------------------------------
     chain input {
         type filter hook input priority filter; policy drop;
@@ -52,7 +52,7 @@ table inet filter {
         # WireGuard inbound UDP port
         iif "<WAN_IFACE>" udp dport <WG_LISTEN_PORT> accept
 
-        # Access to local HUB services (monitoring, internal SSH) from authorized WG peers
+        # Inbound access to host services (SSH, monitoring) from authorized WG peers
         iifname "<WG_IFACE>" ip saddr @wg_trusted_clients accept
     }
 
@@ -65,8 +65,8 @@ table inet filter {
         ct state established,related accept
         ct state invalid drop
 
-        # 1. Inter-spoke / site-to-site transit (clients to remote spoke site subnets)
-        iifname "<WG_IFACE>" oifname "<WG_IFACE>" ip saddr @wg_trusted_clients ip daddr { <SPOKE1_SITE_SUBNET>, <SPOKE2_SITE_SUBNET> } accept
+        # 1. Site-to-site transit: clients to remote spoke site subnets
+        iifname "<WG_IFACE>" oifname "<WG_IFACE>" ip saddr @wg_trusted_clients ip daddr <SPOKE1_SITE_SUBNET> accept
 
         # 2. PBR transit: Route specific clients through Spoke 1 for secondary exit
         iifname "<WG_IFACE>" oifname "<WG_IFACE>" ip saddr @wg_rerouted_clients ip daddr != <WG_SUBNET> accept
@@ -76,14 +76,15 @@ table inet filter {
     }
 
     # -------------------------------------------------------------
-    # OUTPUT CHAIN: Outbound traffic originating from the HUB
+    # OUTPUT CHAIN: Outbound traffic originating from the host
     # -------------------------------------------------------------
     chain output {
         type filter hook output priority filter; policy accept;
     }
-}
 
-table ip nat {
+    # -------------------------------------------------------------
+    # NAT POSTROUTING: Outbound WAN masquerading
+    # -------------------------------------------------------------
     chain postrouting {
         type filter hook postrouting priority srcnat; policy accept;
 
